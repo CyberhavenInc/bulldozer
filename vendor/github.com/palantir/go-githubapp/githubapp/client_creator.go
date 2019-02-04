@@ -166,7 +166,7 @@ func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Cli
 		return nil, err
 	}
 
-	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
+	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/") + "/app"
 	return c.newClient(&http.Client{Transport: itr}, fmt.Sprintf("installation: %d", installationID))
 }
 
@@ -177,7 +177,7 @@ func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4
 	}
 
 	// leaving the v3 URL since this is used to refresh the token, not make queries
-	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
+	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/") + "/app"
 	return c.newV4Client(&http.Client{Transport: itr}, fmt.Sprintf("installation: %d", installationID))
 }
 

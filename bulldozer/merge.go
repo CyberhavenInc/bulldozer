@@ -26,7 +26,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/palantir/bulldozer/pull"
+	"github.com/CyberhavenInc/bulldozer/pull"
 )
 
 const MaxPullRequestPollCount = 5

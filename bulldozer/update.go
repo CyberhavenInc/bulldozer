@@ -22,8 +22,18 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/palantir/bulldozer/pull"
+	"github.com/CyberhavenInc/bulldozer/pull"
 )
+
+const failThresholdMinutes = 60
+
+var failedRebases map[int]time.Time
+
+func RemoveFailedPR(prNumber int) {
+	if failedRebases != nil {
+		delete(failedRebases, prNumber)
+	}
+}
 
 func ShouldUpdatePR(ctx context.Context, pullCtx pull.Context, updateConfig UpdateConfig) (bool, error) {
 	logger := zerolog.Ctx(ctx)
@@ -82,6 +92,11 @@ func UpdatePR(ctx context.Context, pullCtx pull.Context, client *github.Client, 
 				return
 			}
 
+			if !pr.GetMergeable() {
+				logger.Debug().Msg("Pull request is not in mergeable state")
+				return
+			}
+
 			if pr.Head.Repo.GetFork() {
 				logger.Debug().Msg("Pull request is from a fork, cannot keep it up to date with base ref")
 				return
@@ -94,17 +109,33 @@ func UpdatePR(ctx context.Context, pullCtx pull.Context, client *github.Client, 
 			if comparison.GetBehindBy() > 0 {
 				logger.Debug().Msg("Pull request is not up to date")
 
-				mergeRequest := &github.RepositoryMergeRequest{
-					Base: github.String(pr.Head.GetRef()),
-					Head: github.String(baseRef),
+				if failedRebases == nil {
+					failedRebases = make(map[int]time.Time)
 				}
 
-				mergeCommit, _, err := client.Repositories.Merge(ctx, pullCtx.Owner(), pullCtx.Repo(), mergeRequest)
-				if err != nil {
-					logger.Error().Err(errors.WithStack(err)).Msg("Merge failed unexpectedly")
+				// Don't try to rebase if last rebase failed recently
+				now := time.Now().UTC()
+				if lastFail, has := failedRebases[pr.GetNumber()]; has {
+					diff := now.Sub(lastFail)
+					if diff.Minutes() < failThresholdMinutes {
+						logger.Info().Msgf("PR rebase has failed %v ago, aborting rebase", diff)
+						return
+					}
 				}
 
-				logger.Info().Msgf("Successfully updated pull request from base ref %s as merge %s", baseRef, mergeCommit.GetSHA())
+				h := RebaseHandler{
+					ctx:    ctx,
+					client: client,
+					owner:  pullCtx.Owner(),
+					repo:   pullCtx.Repo(),
+				}
+
+				if err := h.interlockedRebase(pr); err != nil {
+					logger.Error().Err(errors.WithStack(err)).Msgf("Failed to rebase pull request %q", pullCtx.Locator())
+					failedRebases[pr.GetNumber()] = now
+				} else {
+					logger.Info().Msgf("Successfully updated pull request from base ref %s as rebase", baseRef)
+				}
 			} else {
 				logger.Debug().Msg("Pull request is not out of date, not updating")
 			}

@@ -22,7 +22,8 @@ import (
 	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/pkg/errors"
 
-	"github.com/palantir/bulldozer/pull"
+	"github.com/CyberhavenInc/bulldozer/bulldozer"
+	"github.com/CyberhavenInc/bulldozer/pull"
 )
 
 type PullRequest struct {
@@ -48,6 +49,7 @@ func (h *PullRequest) Handle(ctx context.Context, eventType, deliveryID string, 
 
 	if event.GetAction() == "closed" {
 		logger.Debug().Msg("Doing nothing since pull request is closed")
+		bulldozer.RemoveFailedPR(number)
 		return nil
 	}
 
@@ -62,6 +64,9 @@ func (h *PullRequest) Handle(ctx context.Context, eventType, deliveryID string, 
 	}
 	pullCtx := pull.NewGithubContext(client, pr, owner, repoName, number)
 
+	if err := h.UpdatePullRequest(ctx, pullCtx, client, pr, pr.GetBase().GetRef()); err != nil {
+		logger.Error().Err(errors.WithStack(err)).Msg("Error updating pull request")
+	}
 	if err := h.ProcessPullRequest(ctx, pullCtx, client, pr); err != nil {
 		logger.Error().Err(errors.WithStack(err)).Msg("Error processing pull request")
 	}

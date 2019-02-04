@@ -26,9 +26,9 @@ import (
 	"github.com/rs/zerolog"
 	"goji.io/pat"
 
-	"github.com/palantir/bulldozer/bulldozer"
-	"github.com/palantir/bulldozer/server/handler"
-	"github.com/palantir/bulldozer/version"
+	"github.com/CyberhavenInc/bulldozer/bulldozer"
+	"github.com/CyberhavenInc/bulldozer/server/handler"
+	"github.com/CyberhavenInc/bulldozer/version"
 )
 
 type Server struct {

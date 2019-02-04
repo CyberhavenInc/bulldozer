@@ -22,8 +22,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/palantir/bulldozer/bulldozer"
-	"github.com/palantir/bulldozer/pull"
+	"github.com/CyberhavenInc/bulldozer/bulldozer"
+	"github.com/CyberhavenInc/bulldozer/pull"
 )
 
 type Base struct {

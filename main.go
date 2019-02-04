@@ -18,9 +18,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/CyberhavenInc/bulldozer/cmd"
 	"github.com/palantir/go-baseapp/pkg/errfmt"
-
-	"github.com/palantir/bulldozer/cmd"
 )
 
 func main() {

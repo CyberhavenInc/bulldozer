@@ -7,7 +7,7 @@ products:
     build:
       output-dir: build
       main-pkg: .
-      version-var: github.com/palantir/bulldozer/version.version
+      version-var: github.com/CyberhavenInc/bulldozer/version.version
       environment:
         CGO_ENABLED: "0"
       os-archs:

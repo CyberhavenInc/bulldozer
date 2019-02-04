@@ -22,7 +22,7 @@ import (
 	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/pkg/errors"
 
-	"github.com/palantir/bulldozer/pull"
+	"github.com/CyberhavenInc/bulldozer/pull"
 )
 
 type Push struct {
