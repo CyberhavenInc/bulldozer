@@ -22,7 +22,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/palantir/bulldozer/pull"
+	"github.com/CyberhavenInc/bulldozer/pull"
 )
 
 func ShouldUpdatePR(ctx context.Context, pullCtx pull.Context, updateConfig UpdateConfig) (bool, error) {
@@ -94,17 +94,17 @@ func UpdatePR(ctx context.Context, pullCtx pull.Context, client *github.Client, 
 			if comparison.GetBehindBy() > 0 {
 				logger.Debug().Msg("Pull request is not up to date")
 
-				mergeRequest := &github.RepositoryMergeRequest{
-					Base: github.String(pr.Head.GetRef()),
-					Head: github.String(baseRef),
+				h := RebaseHandler{
+					ctx:    ctx,
+					client: client,
+					owner:  pullCtx.Owner(),
+					repo:   pullCtx.Repo(),
+				}
+				if err := h.interlockedRebase(pr); err != nil {
+					logger.Error().Err(errors.WithStack(err)).Msgf("Failed to rebase pull request %q", pullCtx.Locator())
 				}
 
-				mergeCommit, _, err := client.Repositories.Merge(ctx, pullCtx.Owner(), pullCtx.Repo(), mergeRequest)
-				if err != nil {
-					logger.Error().Err(errors.WithStack(err)).Msg("Merge failed unexpectedly")
-				}
-
-				logger.Info().Msgf("Successfully updated pull request from base ref %s as merge %s", baseRef, mergeCommit.GetSHA())
+				logger.Info().Msgf("Successfully updated pull request from base ref %s as rebase", baseRef)
 			} else {
 				logger.Debug().Msg("Pull request is not out of date, not updating")
 			}
