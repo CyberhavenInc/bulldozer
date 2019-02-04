@@ -22,7 +22,7 @@ import (
 	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/pkg/errors"
 
-	"github.com/palantir/bulldozer/pull"
+	"github.com/CyberhavenInc/bulldozer/pull"
 )
 
 type Status struct {
@@ -68,6 +68,10 @@ func (h *Status) Handle(ctx context.Context, eventType, deliveryID string, paylo
 	for _, pr := range prs {
 		pullCtx := pull.NewGithubContext(client, pr, owner, repoName, pr.GetNumber())
 		logger := logger.With().Int(githubapp.LogKeyPRNum, pr.GetNumber()).Logger()
+
+		if err := h.UpdatePullRequest(ctx, pullCtx, client, pr, *pr.Base.Ref); err != nil {
+			logger.Error().Err(errors.WithStack(err)).Msg("Error updating pull request")
+		}
 		if err := h.ProcessPullRequest(logger.WithContext(ctx), pullCtx, client, pr); err != nil {
 			logger.Error().Err(errors.WithStack(err)).Msg("Error processing pull request")
 		}
