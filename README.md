@@ -245,7 +245,7 @@ details.
 
 ### Example Files
 
-Example `.bulldozer.yml` files can be found in [`config/examples`](https://github.com/palantir/bulldozer/tree/develop/config/examples)
+Example `.bulldozer.yml` files can be found in [`config/examples`](https://github.com/CyberhavenInc/bulldozer/tree/develop/config/examples)
 
 ### Migrating: Version 0.4.X to 1.X
 

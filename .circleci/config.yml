@@ -26,7 +26,7 @@ common:
 version: 2
 jobs:
   build:
-    working_directory: /go/src/github.com/palantir/bulldozer
+    working_directory: /go/src/github.com/CyberhavenInc/bulldozer
     environment:
       TESTS_DIR: *results-dir
     docker:
@@ -47,7 +47,7 @@ jobs:
             - build/bulldozer
 
   dist:
-    working_directory: /go/src/github.com/palantir/bulldozer
+    working_directory: /go/src/github.com/CyberhavenInc/bulldozer
     docker:
       - image: nmiyake/go:go-darwin-linux-1.11-docker-17.06.0-ce-bsdtar-unzip-t134
     steps:

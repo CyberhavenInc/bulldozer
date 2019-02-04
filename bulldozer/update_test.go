@@ -21,8 +21,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/palantir/bulldozer/pull"
-	"github.com/palantir/bulldozer/pull/pulltest"
+	"github.com/CyberhavenInc/bulldozer/pull"
+	"github.com/CyberhavenInc/bulldozer/pull/pulltest"
 )
 
 func TestShouldUpdatePR(t *testing.T) {
