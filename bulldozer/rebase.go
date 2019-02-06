@@ -13,7 +13,6 @@ import (
 const (
 	refsPrefix   = "refs/"
 	branchPrefix = "heads/"
-	lockLabel    = "Auto update"
 
 	stateUnlocked uint32 = iota
 	stateLocked
