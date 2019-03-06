@@ -130,11 +130,13 @@ func UpdatePR(ctx context.Context, pullCtx pull.Context, client *github.Client, 
 					repo:   pullCtx.Repo(),
 				}
 
-				if err := h.interlockedRebase(pr); err != nil {
+				if locked, err := h.interlockedRebase(pr); err != nil {
 					logger.Error().Err(errors.WithStack(err)).Msgf("Failed to rebase pull request %q", pullCtx.Locator())
 					failedRebases[pr.GetNumber()] = now
+				} else if locked {
+					logger.Info().Msgf("Pull request %q is already locked, skipping", pullCtx.Locator())
 				} else {
-					logger.Info().Msgf("Successfully updated pull request from base ref %s as rebase", baseRef)
+					logger.Info().Msgf("Successfully updated pull %q request from base ref %s as rebase", pullCtx.Locator(), baseRef)
 				}
 			} else {
 				logger.Debug().Msg("Pull request is not out of date, not updating")

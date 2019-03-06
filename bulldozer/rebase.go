@@ -178,11 +178,11 @@ func (h *RebaseHandler) rebase(pr *github.PullRequest) error {
 	})
 }
 
-func (h *RebaseHandler) interlockedRebase(pr *github.PullRequest) error {
+func (h *RebaseHandler) interlockedRebase(pr *github.PullRequest) (bool, error) {
 	if !atomic.CompareAndSwapUint32(&prLock, stateUnlocked, stateLocked) {
-		return errors.New("PR already locked")
+		return true, nil
 	}
 	defer atomic.StoreUint32(&prLock, stateUnlocked)
 
-	return h.rebase(pr)
+	return false, h.rebase(pr)
 }
