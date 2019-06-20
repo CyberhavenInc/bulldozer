@@ -43,7 +43,7 @@ func (h *Push) Handle(ctx context.Context, eventType, deliveryID string, payload
 	owner := repo.GetOwner().GetLogin()
 	repoName := repo.GetName()
 	installationID := githubapp.GetInstallationIDFromEvent(&event)
-	baseRef := event.GetRef()
+	eventRef := event.GetRef()
 
 	// todo: fixup PushEventRepository != Repository
 	ghRepo := &github.Repository{
@@ -60,26 +60,21 @@ func (h *Push) Handle(ctx context.Context, eventType, deliveryID string, payload
 		return errors.Wrap(err, "failed to instantiate github client")
 	}
 
-	prs, err := pull.ListOpenPullRequestsForRef(ctx, client, owner, repoName, baseRef)
+	prs, err := pull.ListOpenPullRequestsForRef(ctx, client, owner, repoName, eventRef, true)
 	if err != nil {
 		return errors.Wrap(err, "failed to determine open pull requests matching the push change")
 	}
 
-	logger.Debug().Msgf("received push event with base ref %s", baseRef)
+	logger.Debug().Msgf("received push event with ref %s", eventRef)
 
-	if len(prs) == 0 {
-		logger.Debug().Msg("Doing nothing since push event affects no open pull requests")
+	filtered := h.FilterUpdatablePRs(ctx, client, prs)
+	if len(filtered) == 0 {
+		logger.Debug().Msg("Doing nothing since push event affects no white pull requests")
 		return nil
 	}
 
-	for _, pr := range prs {
-		pullCtx := pull.NewGithubContext(client, pr, owner, repoName, pr.GetNumber())
-		logger := logger.With().Int(githubapp.LogKeyPRNum, pr.GetNumber()).Logger()
-
-		logger.Debug().Msgf("checking status for updated sha %s", baseRef)
-		if err := h.UpdatePullRequest(logger.WithContext(ctx), pullCtx, client, pr, baseRef); err != nil {
-			logger.Error().Err(errors.WithStack(err)).Msg("Error updating pull request")
-		}
+	if err := h.UpdateOldestPullRequest(ctx, client, filtered); err != nil {
+		logger.Error().Err(errors.WithStack(err)).Msg("Error updating oldest pull request")
 	}
 
 	return nil

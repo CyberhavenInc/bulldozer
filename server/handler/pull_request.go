@@ -17,6 +17,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/google/go-github/github"
 	"github.com/palantir/go-githubapp/githubapp"
@@ -46,10 +47,12 @@ func (h *PullRequest) Handle(ctx context.Context, eventType, deliveryID string, 
 	number := event.GetNumber()
 	installationID := githubapp.GetInstallationIDFromEvent(&event)
 	ctx, logger := githubapp.PreparePRContext(ctx, installationID, repo, number)
+	action := event.GetAction()
 
-	if event.GetAction() == "closed" {
+	if action == "closed" {
 		logger.Debug().Msg("Doing nothing since pull request is closed")
 		bulldozer.RemoveFailedPR(number)
+		RmoveActivePR(fmt.Sprintf("%s/%s#%d", owner, repoName, number))
 		return nil
 	}
 
@@ -64,9 +67,13 @@ func (h *PullRequest) Handle(ctx context.Context, eventType, deliveryID string, 
 	}
 	pullCtx := pull.NewGithubContext(client, pr, owner, repoName, number)
 
-	if err := h.UpdatePullRequest(ctx, pullCtx, client, pr, pr.GetBase().GetRef()); err != nil {
-		logger.Error().Err(errors.WithStack(err)).Msg("Error updating pull request")
+	// Try to update this PR if no other PR is currently being updated
+	if (action == "labeled" || action == "unlabeled") && !ActivePRPresent() {
+		if err := h.UpdatePullRequest(ctx, pullCtx, client, pr, pr.GetBase().GetRef()); err != nil {
+			logger.Error().Err(errors.WithStack(err)).Msg("Error updating pull request")
+		}
 	}
+
 	if err := h.ProcessPullRequest(ctx, pullCtx, client, pr); err != nil {
 		logger.Error().Err(errors.WithStack(err)).Msg("Error processing pull request")
 	}

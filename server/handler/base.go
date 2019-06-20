@@ -16,6 +16,7 @@ package handler
 
 import (
 	"context"
+	"sort"
 
 	"github.com/google/go-github/github"
 	"github.com/palantir/go-githubapp/githubapp"
@@ -29,6 +30,12 @@ import (
 type Base struct {
 	githubapp.ClientCreator
 	bulldozer.ConfigFetcher
+}
+
+type pullWithConfig struct {
+	pr         *github.PullRequest
+	pullCtx    pull.Context
+	pullConfig bulldozer.Config
 }
 
 func (b *Base) ProcessPullRequest(ctx context.Context, pullCtx pull.Context, client *github.Client, pr *github.PullRequest) error {
@@ -87,10 +94,72 @@ func (b *Base) UpdatePullRequest(ctx context.Context, pullCtx pull.Context, clie
 
 		if shouldUpdate {
 			logger.Debug().Msg("Pull request should be updated")
-			if err := bulldozer.UpdatePR(ctx, pullCtx, client, config.Update, baseRef); err != nil {
+			if err := bulldozer.UpdatePR(ctx, pullCtx, client, config.Update, baseRef, AddActivePR); err != nil {
 				return errors.Wrap(err, "failed to update pull request")
 			}
 		}
+	}
+
+	return nil
+}
+
+func (b *Base) FilterUpdatablePRs(ctx context.Context, client *github.Client, prs []*github.PullRequest) (result []pullWithConfig) {
+	logger := zerolog.Ctx(ctx)
+
+	for _, pr := range prs {
+		bulldozerConfig, err := b.ConfigForPR(ctx, client, pr)
+		if err != nil {
+			logger.Debug().Msgf("unable to fetch config for pr: %v", err)
+			continue
+		}
+
+		if bulldozerConfig.Missing() || bulldozerConfig.Invalid() {
+			logger.Debug().Msgf("Invalid bulldozer configuration for %q", bulldozerConfig.String())
+			continue
+		}
+
+		config := *bulldozerConfig.Config
+		pullCtx := pull.NewGithubContext(client, pr, bulldozerConfig.Owner, bulldozerConfig.Repo, pr.GetNumber())
+
+		canUpdate, err := bulldozer.ShouldUpdatePR(ctx, pullCtx, config.Update)
+		if err != nil {
+			logger.Debug().Msgf("unable to determine whitelist status: %v", err)
+			continue
+		}
+
+		behindBase, err := bulldozer.IsPRBehindBase(ctx, client, pullCtx)
+		if err != nil {
+			logger.Debug().Msgf("unable to determine update status: %v", err)
+			continue
+		}
+
+		if canUpdate && behindBase {
+			result = append(result, pullWithConfig{pr: pr, pullCtx: pullCtx, pullConfig: config})
+		}
+	}
+
+	return
+}
+
+func (b *Base) UpdateOldestPullRequest(ctx context.Context, client *github.Client, prs []pullWithConfig) error {
+	if len(prs) == 0 {
+		return nil
+	}
+
+	// Other PRs are being updated
+	if ActivePRPresent() {
+		return nil
+	}
+
+	// Sort by creation time, oldest first
+	sort.Slice(prs, func(i, j int) bool {
+		return prs[i].pr.GetCreatedAt().Before(prs[j].pr.GetCreatedAt())
+	})
+
+	oldest := prs[0]
+	baseRef := oldest.pr.GetBase().GetRef()
+	if err := bulldozer.UpdatePR(ctx, oldest.pullCtx, client, oldest.pullConfig.Update, baseRef, AddActivePR); err != nil {
+		return errors.Wrap(err, "failed to update pull request")
 	}
 
 	return nil
