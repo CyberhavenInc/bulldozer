@@ -25,6 +25,8 @@ import (
 	"github.com/CyberhavenInc/bulldozer/pull"
 )
 
+type rebaseUpdateCallback func(string)
+
 const failThresholdMinutes = 60
 
 var failedRebases map[int]time.Time
@@ -69,7 +71,38 @@ func ShouldUpdatePR(ctx context.Context, pullCtx pull.Context, updateConfig Upda
 	return true, nil
 }
 
-func UpdatePR(ctx context.Context, pullCtx pull.Context, client *github.Client, updateConfig UpdateConfig, baseRef string) error {
+func IsPRBehindBase(ctx context.Context, client *github.Client, pullCtx pull.Context) (bool, error) {
+	logger := zerolog.Ctx(ctx)
+
+	pr, _, err := client.PullRequests.Get(ctx, pullCtx.Owner(), pullCtx.Repo(), pullCtx.Number())
+	if err != nil {
+		logger.Error().Err(errors.WithStack(err)).Msgf("Failed to retrieve pull request %q", pullCtx.Locator())
+		return false, err
+	}
+
+	if pr.GetState() == "closed" {
+		return false, nil
+	}
+
+	if !pr.GetMergeable() && pr.GetMergeableState() != "unknown" {
+		return false, nil
+	}
+
+	if pr.Head.Repo.GetFork() {
+		return false, nil
+	}
+
+	baseRef := pr.GetBase().GetRef()
+	comparison, _, err := client.Repositories.CompareCommits(ctx, pullCtx.Owner(), pullCtx.Repo(), baseRef, pr.GetHead().GetSHA())
+	if err != nil {
+		logger.Error().Err(errors.WithStack(err)).Msgf("cannot compare %s and %s for %q", baseRef, pr.GetHead().GetSHA(), pullCtx.Locator())
+		return false, err
+	}
+
+	return comparison.GetBehindBy() > 0, nil
+}
+
+func UpdatePR(ctx context.Context, pullCtx pull.Context, client *github.Client, updateConfig UpdateConfig, baseRef string, onSuccess rebaseUpdateCallback) error {
 	logger := zerolog.Ctx(ctx)
 
 	//todo: should the updateConfig struct provide any other details here?
@@ -136,6 +169,7 @@ func UpdatePR(ctx context.Context, pullCtx pull.Context, client *github.Client, 
 				} else if locked {
 					logger.Info().Msgf("Pull request %q is already locked, skipping", pullCtx.Locator())
 				} else {
+					onSuccess(pullCtx.Locator())
 					logger.Info().Msgf("Successfully updated pull %q request from base ref %s as rebase", pullCtx.Locator(), baseRef)
 				}
 			} else {

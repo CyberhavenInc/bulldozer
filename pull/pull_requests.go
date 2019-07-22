@@ -43,7 +43,7 @@ func ListOpenPullRequestsForSHA(ctx context.Context, client *github.Client, owne
 	return results, nil
 }
 
-func ListOpenPullRequestsForRef(ctx context.Context, client *github.Client, owner, repoName, ref string) ([]*github.PullRequest, error) {
+func ListOpenPullRequestsForRef(ctx context.Context, client *github.Client, owner, repoName, ref string, includeHead bool) ([]*github.PullRequest, error) {
 	var results []*github.PullRequest
 	logger := zerolog.Ctx(ctx)
 
@@ -54,9 +54,11 @@ func ListOpenPullRequestsForRef(ctx context.Context, client *github.Client, owne
 	}
 
 	for _, openPR := range openPRs {
-		formattedRef := fmt.Sprintf("refs/heads/%s", openPR.GetBase().GetRef())
-		logger.Debug().Msgf("found open pull request with base ref %s", formattedRef)
-		if formattedRef == ref {
+		baseRef := fmt.Sprintf("refs/heads/%s", openPR.GetBase().GetRef())
+		headRef := fmt.Sprintf("refs/heads/%s", openPR.GetHead().GetRef())
+
+		logger.Debug().Msgf("found open pull request with base ref %s, head ref %s", baseRef, headRef)
+		if baseRef == ref || (includeHead && headRef == ref) {
 			results = append(results, openPR)
 		}
 	}

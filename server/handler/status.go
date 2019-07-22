@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 
 	"github.com/CyberhavenInc/bulldozer/pull"
 )
@@ -44,9 +45,11 @@ func (h *Status) Handle(ctx context.Context, eventType, deliveryID string, paylo
 	repoName := repo.GetName()
 	installationID := githubapp.GetInstallationIDFromEvent(&event)
 	ctx, logger := githubapp.PrepareRepoContext(ctx, installationID, repo)
+	state := event.GetState()
+	eventStatusName := event.GetContext()
 
-	if event.GetState() != "success" {
-		logger.Debug().Msgf("Doing nothing since context state for %q was %q", event.GetContext(), event.GetState())
+	if state == "pending" {
+		logger.Debug().Msgf("Doing nothing since context state for %q was %q", eventStatusName, event.GetState())
 		return nil
 	}
 
@@ -60,8 +63,40 @@ func (h *Status) Handle(ctx context.Context, eventType, deliveryID string, paylo
 		return errors.Wrap(err, "failed to determine open pull requests matching the status context change")
 	}
 
+	required := false
+	wasActive := false
+	for _, pr := range prs {
+		pullCtx := pull.NewGithubContext(client, pr, owner, repoName, pr.GetNumber())
+		required = h.isStatusRequired(ctx, pullCtx, eventStatusName)
+
+		// Cleanup PR state
+		wasActive = wasActive || RmoveActivePR(pullCtx.Locator())
+	}
+
+	// Detect failure in recentrly rebased PR and schedule another rebase
+	if state == "error" || state == "failure" {
+		if required && (wasActive || !ActivePRPresent()) {
+			if err := h.tryUpdateAnotherPR(logger.WithContext(ctx), client, event); err != nil {
+				logger.Error().Err(errors.WithStack(err)).Msg("Failed to update another pull request")
+			}
+			return nil
+		}
+	} else if state != "success" {
+		logger.Error().Msgf("Unexpected state for %q: %q", event.GetContext(), event.GetState())
+		return nil
+	}
+
 	if len(prs) == 0 {
 		logger.Debug().Msg("Doing nothing since status change event affects no open pull requests")
+		return nil
+	}
+
+	// PR became outdated while building, reschedure update again
+	stillBehindBase := h.FilterUpdatablePRs(ctx, client, prs)
+	if len(stillBehindBase) > 0 {
+		if err := h.tryUpdateAnotherPR(logger.WithContext(ctx), client, event); err != nil {
+			logger.Error().Err(errors.WithStack(err)).Msg("Failed to update another pull request")
+		}
 		return nil
 	}
 
@@ -69,15 +104,48 @@ func (h *Status) Handle(ctx context.Context, eventType, deliveryID string, paylo
 		pullCtx := pull.NewGithubContext(client, pr, owner, repoName, pr.GetNumber())
 		logger := logger.With().Int(githubapp.LogKeyPRNum, pr.GetNumber()).Logger()
 
-		if err := h.UpdatePullRequest(ctx, pullCtx, client, pr, pr.GetBase().GetRef()); err != nil {
-			logger.Error().Err(errors.WithStack(err)).Msg("Error updating pull request")
-		}
 		if err := h.ProcessPullRequest(logger.WithContext(ctx), pullCtx, client, pr); err != nil {
 			logger.Error().Err(errors.WithStack(err)).Msg("Error processing pull request")
 		}
 	}
 
 	return nil
+}
+
+func (h *Status) tryUpdateAnotherPR(ctx context.Context, client *github.Client, event github.StatusEvent) error {
+	repo := event.GetRepo()
+	owner := repo.GetOwner().GetLogin()
+	repoName := repo.GetName()
+
+	prs, err := pull.ListOpenPullRequests(ctx, client, owner, repoName)
+	if err != nil {
+		return err
+	}
+
+	filtered := h.FilterUpdatablePRs(ctx, client, prs)
+	if len(filtered) == 0 {
+		return nil
+	}
+
+	if err := h.UpdateOldestPullRequest(ctx, client, filtered); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *Status) isStatusRequired(ctx context.Context, pullCtx pull.Context, eventStatusName string) bool {
+	// Check if status of the event is manadatory for the merge
+	if requiredStatuses, err := pullCtx.RequiredStatuses(ctx); err == nil {
+		for _, name := range requiredStatuses {
+			if eventStatusName == name {
+				return true
+			}
+		}
+	} else {
+		zerolog.Ctx(ctx).Warn().Msgf("Failed to get required PR status list: %v", err)
+	}
+	return false
 }
 
 // type assertion

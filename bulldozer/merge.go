@@ -129,7 +129,7 @@ func MergePR(ctx context.Context, pullCtx pull.Context, client *github.Client, m
 					ref := fmt.Sprintf("refs/heads/%s", pr.Head.GetRef())
 
 					// check other open PRs to make sure that nothing is trying to merge into the ref we're about to delete
-					prs, err := pull.ListOpenPullRequestsForRef(ctx, client, pullCtx.Owner(), pullCtx.Repo(), ref)
+					prs, err := pull.ListOpenPullRequestsForRef(ctx, client, pullCtx.Owner(), pullCtx.Repo(), ref, false)
 					if err != nil {
 						logger.Error().Err(errors.WithStack(err)).Msgf("Unable to list open prs against ref %s to compare delete request", ref)
 						return
