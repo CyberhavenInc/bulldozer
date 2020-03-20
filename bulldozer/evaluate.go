@@ -214,6 +214,9 @@ func ShouldMergePR(ctx context.Context, pullCtx pull.Context, mergeConfig MergeC
 		return false, errors.Wrap(err, "failed to determine currently successful status checks")
 	}
 
+	logger.Debug().Msgf("%s required statuses: [%s], success statuses: [%s]",
+		pullCtx.Locator(), strings.Join(requiredStatuses, ","), strings.Join(successStatuses, ","))
+
 	unsatisfiedStatuses := setDifference(requiredStatuses, successStatuses)
 	if len(unsatisfiedStatuses) > 0 {
 		logger.Debug().Msgf("%s is deemed not mergeable because of unfulfilled status checks: [%s]", pullCtx.Locator(), strings.Join(unsatisfiedStatuses, ","))
