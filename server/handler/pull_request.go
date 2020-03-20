@@ -52,7 +52,7 @@ func (h *PullRequest) Handle(ctx context.Context, eventType, deliveryID string, 
 	if action == "closed" {
 		logger.Debug().Msg("Doing nothing since pull request is closed")
 		bulldozer.RemoveFailedPR(number)
-		RmoveActivePR(fmt.Sprintf("%s/%s#%d", owner, repoName, number))
+		RemoveActivePR(fmt.Sprintf("%s/%s#%d", owner, repoName, number))
 		return nil
 	}
 
