@@ -141,6 +141,7 @@ func (ghc *GithubContext) CurrentSuccessStatuses(ctx context.Context) ([]string,
 		opts := &github.ListOptions{PerPage: 100}
 		var successStatuses []string
 
+		// Normal statuses
 		for {
 			combinedStatus, res, err := ghc.client.Repositories.GetCombinedStatus(ctx, ghc.owner, ghc.repo, ghc.pr.GetHead().GetSHA(), opts)
 			if err != nil {
@@ -157,6 +158,34 @@ func (ghc *GithubContext) CurrentSuccessStatuses(ctx context.Context) ([]string,
 				break
 			}
 			opts.Page = res.NextPage
+		}
+
+		// Github actions statuses
+		workflowOpts := &github.ListWorkflowRunsOptions{Event: "pull_request", Branch: ghc.pr.GetHead().GetRef(), ListOptions: github.ListOptions{PerPage: 100}}
+		for {
+			runs, res, err := ghc.client.Actions.ListRepositoryWorkflowRuns(ctx, ghc.owner, ghc.repo, workflowOpts)
+			if err != nil {
+				return ghc.successStatuses, errors.Wrapf(err, "cannot get github actions status for SHA %s on %s", ghc.pr.GetHead().GetSHA(), ghc.Locator())
+			}
+
+			for _, run := range runs.WorkflowRuns {
+				jobOpts := &github.ListWorkflowJobsOptions{Filter: "all", ListOptions: github.ListOptions{PerPage: 100}}
+				jobs, _, _ := ghc.client.Actions.ListWorkflowJobs(ctx, ghc.owner, ghc.repo, run.GetID(), jobOpts)
+				if jobs.GetTotalCount() < 1 {
+					continue
+				}
+
+				for _, job := range jobs.Jobs {
+					if job.GetConclusion() == "success" {
+						successStatuses = append(successStatuses, job.GetName())
+					}
+				}
+			}
+
+			if res.NextPage == 0 {
+				break
+			}
+			workflowOpts.Page = res.NextPage
 		}
 
 		ghc.successStatuses = successStatuses
