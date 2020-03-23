@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/google/go-github/github"
-	"github.com/nu7hatch/gouuid"
+	uuid "github.com/nu7hatch/gouuid"
 )
 
 const (
@@ -96,7 +96,7 @@ func (h *RebaseHandler) cherryPickCommit(ref, headSHA *string, tree *github.Tree
 		Committer: commit.GetCommit().GetCommitter(),
 		Message:   commit.GetCommit().Message,
 		Tree:      newTree,
-		Parents:   []github.Commit{github.Commit{SHA: headSHA}},
+		Parents:   []*github.Commit{&github.Commit{SHA: headSHA}},
 	}
 
 	newHeadCommit, _, err := h.client.Git.CreateCommit(h.ctx, h.owner, h.repo, &commitData)

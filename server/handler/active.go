@@ -20,7 +20,7 @@ func AddActivePR(id string) {
 	updateInProgress[id] = true
 }
 
-func RmoveActivePR(id string) bool {
+func RemoveActivePR(id string) bool {
 	lock.Lock()
 	defer lock.Unlock()
 

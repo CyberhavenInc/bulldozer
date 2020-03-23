@@ -1,0 +1,65 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "jw32xMgpDGgdDbC0Aievvmyyrso=",
+			"path": "github.com/google/go-github/github",
+			"revision": "7726a3e3e3b67ab86c97198c8d682b09108a27b7",
+			"revisionTime": "2020-03-19T23:53:35Z"
+		},
+		{
+			"path": "github.com/google/go-github/v30/github",
+			"revision": ""
+		},
+		{
+			"checksumSHA1": "MGuo3cKpvk2lnzhjmnD7PsEpr4Q=",
+			"path": "golang.org/x/crypto/cast5",
+			"revision": "1b76d66859c6111b3d5c3ea6600ea44dc188bf12",
+			"revisionTime": "2020-03-06T19:01:14Z"
+		},
+		{
+			"checksumSHA1": "C7YMWXRbIKtj5CJRe4csDL3SBVM=",
+			"path": "golang.org/x/crypto/openpgp",
+			"revision": "1b76d66859c6111b3d5c3ea6600ea44dc188bf12",
+			"revisionTime": "2020-03-06T19:01:14Z"
+		},
+		{
+			"checksumSHA1": "GsiyOA4hiw9kjtsf8nOCIGXp0SI=",
+			"path": "golang.org/x/crypto/openpgp/armor",
+			"revision": "1b76d66859c6111b3d5c3ea6600ea44dc188bf12",
+			"revisionTime": "2020-03-06T19:01:14Z"
+		},
+		{
+			"checksumSHA1": "kIzz55Anxabju3SqB4cp0sDbJK8=",
+			"path": "golang.org/x/crypto/openpgp/elgamal",
+			"revision": "1b76d66859c6111b3d5c3ea6600ea44dc188bf12",
+			"revisionTime": "2020-03-06T19:01:14Z"
+		},
+		{
+			"checksumSHA1": "rlxVSaGgqdAgwblsErxTxIfuGfg=",
+			"path": "golang.org/x/crypto/openpgp/errors",
+			"revision": "1b76d66859c6111b3d5c3ea6600ea44dc188bf12",
+			"revisionTime": "2020-03-06T19:01:14Z"
+		},
+		{
+			"checksumSHA1": "32+tMuGl/CcKe7BdI5RhiJAk9Fc=",
+			"path": "golang.org/x/crypto/openpgp/packet",
+			"revision": "1b76d66859c6111b3d5c3ea6600ea44dc188bf12",
+			"revisionTime": "2020-03-06T19:01:14Z"
+		},
+		{
+			"checksumSHA1": "PwdkQ+WNRYvsBJ2ls0NIOEBHp1g=",
+			"path": "golang.org/x/crypto/openpgp/s2k",
+			"revision": "1b76d66859c6111b3d5c3ea6600ea44dc188bf12",
+			"revisionTime": "2020-03-06T19:01:14Z"
+		},
+		{
+			"checksumSHA1": "hlks4jsbqCXhq5HN0KUMkm4V8kk=",
+			"path": "golang.org/x/crypto/ripemd160",
+			"revision": "1b76d66859c6111b3d5c3ea6600ea44dc188bf12",
+			"revisionTime": "2020-03-06T19:01:14Z"
+		}
+	],
+	"rootPath": "github.com/CyberhavenInc/bulldozer"
+}

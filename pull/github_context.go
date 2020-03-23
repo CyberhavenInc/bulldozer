@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
@@ -141,6 +142,7 @@ func (ghc *GithubContext) CurrentSuccessStatuses(ctx context.Context) ([]string,
 		opts := &github.ListOptions{PerPage: 100}
 		var successStatuses []string
 
+		// Normal statuses
 		for {
 			combinedStatus, res, err := ghc.client.Repositories.GetCombinedStatus(ctx, ghc.owner, ghc.repo, ghc.pr.GetHead().GetSHA(), opts)
 			if err != nil {
@@ -157,6 +159,63 @@ func (ghc *GithubContext) CurrentSuccessStatuses(ctx context.Context) ([]string,
 				break
 			}
 			opts.Page = res.NextPage
+		}
+
+		workflowOpts := &github.ListWorkflowRunsOptions{
+			Event:       "pull_request",
+			Branch:      ghc.pr.GetHead().GetRef(),
+			ListOptions: github.ListOptions{PerPage: 100},
+		}
+
+		var lastCommitTime time.Time
+		if lastCommit, _, err := ghc.client.Repositories.GetCommit(ctx, ghc.owner, ghc.repo, ghc.pr.GetHead().GetSHA()); err == nil {
+			lastCommitTime = lastCommit.GetCommit().GetCommitter().GetDate()
+		}
+
+		// Github actions statuses
+		actionResults := map[string]*github.WorkflowJob{}
+		for {
+			runs, res, err := ghc.client.Actions.ListRepositoryWorkflowRuns(ctx, ghc.owner, ghc.repo, workflowOpts)
+			if err != nil {
+				return ghc.successStatuses, errors.Wrapf(err, "cannot get github actions status for branch %s on %s", ghc.pr.GetHead().GetRef(), ghc.Locator())
+			}
+
+			for _, run := range runs.WorkflowRuns {
+				jobOpts := &github.ListWorkflowJobsOptions{Filter: "latest", ListOptions: github.ListOptions{PerPage: 100}}
+				jobs, _, _ := ghc.client.Actions.ListWorkflowJobs(ctx, ghc.owner, ghc.repo, run.GetID(), jobOpts)
+				if jobs.GetTotalCount() < 1 {
+					continue
+				}
+
+				// Store only last result of a particular job
+				for _, job := range jobs.Jobs {
+					// Filter out jobs that finished before last push
+					if job.GetCompletedAt().Before(lastCommitTime) {
+						continue
+					}
+
+					jobName := job.GetName()
+					if existing, has := actionResults[jobName]; has {
+						if job.GetStartedAt().Time.After(existing.GetStartedAt().Time) {
+							actionResults[jobName] = job
+						}
+					} else {
+						actionResults[jobName] = job
+					}
+				}
+			}
+
+			if res.NextPage == 0 {
+				break
+			}
+			workflowOpts.Page = res.NextPage
+		}
+
+		// Second pass, store successful results
+		for jobName, job := range actionResults {
+			if job.GetConclusion() == "success" {
+				successStatuses = append(successStatuses, jobName)
+			}
 		}
 
 		ghc.successStatuses = successStatuses

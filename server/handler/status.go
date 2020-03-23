@@ -70,10 +70,10 @@ func (h *Status) Handle(ctx context.Context, eventType, deliveryID string, paylo
 		required = h.isStatusRequired(ctx, pullCtx, eventStatusName)
 
 		// Cleanup PR state
-		wasActive = wasActive || RmoveActivePR(pullCtx.Locator())
+		wasActive = wasActive || RemoveActivePR(pullCtx.Locator())
 	}
 
-	// Detect failure in recentrly rebased PR and schedule another rebase
+	// Detect failure in recently rebased PR and schedule another rebase
 	if state == "error" || state == "failure" {
 		if required && (wasActive || !ActivePRPresent()) {
 			if err := h.tryUpdateAnotherPR(logger.WithContext(ctx), client, event); err != nil {
@@ -91,7 +91,7 @@ func (h *Status) Handle(ctx context.Context, eventType, deliveryID string, paylo
 		return nil
 	}
 
-	// PR became outdated while building, reschedure update again
+	// PR became outdated while building, reschedule update again
 	stillBehindBase := h.FilterUpdatablePRs(ctx, client, prs)
 	if len(stillBehindBase) > 0 {
 		if err := h.tryUpdateAnotherPR(logger.WithContext(ctx), client, event); err != nil {
